@@ -7,11 +7,12 @@ from emoji import EMOJI_DATA
 
 
 class CustomToken:
-    def __init__(self, text, is_stop=False, is_sy=False) -> None:
+    def __init__(self, text, lex=None, is_stop=False, is_sy=False) -> None:
         self.text = text
         self._is_stop = is_stop
         # self.is_date = False
         self.is_symbol = is_sy
+        self.lemma = lex
 
     @staticmethod
     def cluster_list(list):
@@ -128,7 +129,7 @@ class SpacyCustomTokenizer:
 
     def __call__(self, text):
         for token in self.nlp(text):
-            for t in self.__check_token__(token.text, CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct)):
+            for t in self.__check_token__(token.text, CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct, lex=token.lemma_)):
                 yield t
 
     def __check_token__(self, text, h_token=None):
@@ -148,7 +149,7 @@ class SpacyCustomTokenizer:
         if m is None:
             return []
         if m.start() == 0 and m.end != len(text):
-            token = CustomToken(text[0: m.end()], True, True)
+            token = CustomToken(text[0: m.end()], None, True, True)
             return [token] + list(self.__check_token__(text[m.end():]))
         return []
 
@@ -158,7 +159,7 @@ class SpacyCustomTokenizer:
             return []
 
         if m.start() != 0 and m.end == len(text):
-            token = CustomToken(text[m.start():], True, True)
+            token = CustomToken(text[m.start():], None, True, True)
             return list(self.__check_token__(text[0: m.start():])) + [[token]]
         return []
 
