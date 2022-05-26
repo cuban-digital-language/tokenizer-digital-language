@@ -9,7 +9,7 @@ from emoji import EMOJI_DATA
 class CustomToken:
     def __init__(self, text, lex=None, is_stop=False, is_sy=False) -> None:
         self.text = text
-        self._is_stop = is_stop
+        self.is_stop = is_stop
         # self.is_date = False
         self.is_symbol = is_sy
         self.lemma = lex
