@@ -5,6 +5,16 @@ from spacy.tokenizer import Tokenizer
 import inspect
 from emoji import EMOJI_DATA
 
+import progressbar
+
+
+def get_progressbar(N, name=""):
+    return progressbar.ProgressBar(
+        maxval=N,
+        widgets=[progressbar.Bar('#', '[', ']'),
+                 name,
+                 progressbar.Percentage()])
+
 
 class CustomToken:
     def __init__(self, text, lex=None, is_stop=False, is_sy=False) -> None:
