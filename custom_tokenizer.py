@@ -137,7 +137,7 @@ class SpacyCustomTokenizer:
                                        url_match=simple_url_re.match
                                        )
 
-    def ents(self, text):
+    def __ents__(self, text):
         return self.nlp(text).ents
 
     def __call__(self, text):
