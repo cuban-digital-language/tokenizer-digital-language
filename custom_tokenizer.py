@@ -137,6 +137,9 @@ class SpacyCustomTokenizer:
                                        url_match=simple_url_re.match
                                        )
 
+    def ents(self, text):
+        return self.nlp(text).ents
+
     def __call__(self, text):
         for token in self.nlp(text):
             for t in self.__check_token__(token.text, CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct, lex=token.lemma_)):
