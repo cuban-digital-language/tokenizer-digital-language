@@ -107,6 +107,11 @@ class SpacyCustomTokenizer:
     def __init__(self, special_cases={}) -> None:
         self.nlp = spacy.load("es_core_news_sm")
 
+        emoji = [str(key) for key in EMOJI_DATA.keys()]
+        emoji = ''.join(emoji)
+        emoji = f'[{emoji}]+'
+        self.sp_fix_regex.append(emoji)
+
         prefixes = list(self.nlp.Defaults.prefixes)
         for reg in self.delete_prefix_regex:
             prefixes.remove(reg)
