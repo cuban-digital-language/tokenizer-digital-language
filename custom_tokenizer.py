@@ -4,8 +4,9 @@ from spacy.util import compile_prefix_regex, compile_infix_regex, compile_suffix
 from spacy.tokenizer import Tokenizer
 import inspect
 from emoji import EMOJI_DATA
-
+import json
 import progressbar
+import ast
 
 
 def get_progressbar(N, name=""):
@@ -17,12 +18,22 @@ def get_progressbar(N, name=""):
 
 
 class CustomToken:
-    def __init__(self, text, lex=None, is_stop=False, is_sy=False) -> None:
+    def __init__(self, text, lex=None, is_stop=False,
+                 is_sy=False, is_title=False,
+                 pos='', tag='', vector=None, dep='', sent='') -> None:
         self.text = text
         self.is_stop = is_stop
         # self.is_date = False
         self.is_symbol = is_sy
         self.lemma = lex
+        self.syntax = (is_title, pos, tag, dep)
+        self.vector = None if vector is None else tuple(vector)
+        self.sent = sent
+
+    def clone(self):
+        token = CustomToken(self.text)
+        token.__dict__ = self.__dict__
+        return token
 
     @staticmethod
     def cluster_list(list):
@@ -105,6 +116,7 @@ class SpacyCustomTokenizer:
     delete_infix_regex = []
 
     def __init__(self, special_cases={}) -> None:
+        self.memory = {}
         self.nlp = spacy.load("es_core_news_sm")
 
         emoji = [str(key) for key in EMOJI_DATA.keys()]
@@ -142,46 +154,94 @@ class SpacyCustomTokenizer:
                                        url_match=simple_url_re.match
                                        )
 
+    def __save__(self, path='token_text.json'):
+        with open(path, 'w+') as f:
+            f.write(str(self.memory))
+            f.close()
+
+    def __load__(self, path='token_text.json'):
+        try:
+            with open(path, 'r') as f:
+                text = f.read()
+                if not any(text):
+                    return
+                self.memory = ast.literal_eval(text)
+                f.close()
+        except:
+            pass
+
     def __ents__(self, text):
         return self.nlp(text).ents
 
-    def __call__(self, text):
-        for token in self.nlp(text):
-            for t in self.__check_token__(token.text, CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct, lex=token.lemma_)):
-                yield t
+    def __transform__(self, token):
+        return CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct or token.is_left_punct,
+                           lex=token.lemma_, is_title=token.is_title,
+                           pos=token.pos_, tag=token.tag_, vector=token.vector, dep=token.dep_, sent=token.sent.text)
 
-    def __check_token__(self, text, h_token=None):
+    def __call__(self, text):
+        hsh = str(hash(text))
+        if hsh in self.memory:
+            for obj in self.memory[hsh]:
+                t = CustomToken('')
+                t.text = obj["text"]
+                t.is_stop = obj["is_stop"]
+                t.is_symbol = obj["is_symbol"]
+                t.lemma = obj["lemma"]
+                t.syntax = obj["syntax"]
+                t.vector = obj["vector"]
+                t.sent = obj["sent"]
+
+                yield t
+        else:
+            self.memory[hsh] = []
+            for token in self.nlp(text):
+                for t in self.__check_token__(token.text, self.__transform__(token)):
+                    self.memory[hsh].append({
+                        "text": t.text,
+                        "is_stop": t.is_stop,
+                        "is_symbol": t.is_symbol,
+                        "lemma": t.lemma,
+                        "syntax": t.syntax,
+                        "vector": t.vector,
+                        "sent": t.sent
+                    })
+
+                    yield t
+            self.memory[hsh] = tuple(self.memory[hsh])
+
+    def __check_token__(self, text, h_token):
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if name.startswith('_'):
                 continue
-            tokens = method(text)
+            tokens = method(text, h_token)
             if any(tokens):
                 for t in tokens:
                     yield t
                 break
         else:
-            yield h_token if not h_token is None else CustomToken(text)
+            h_token.text = text
+            yield h_token
 
-    def prefix_re_check(self, text):
+    def prefix_re_check(self, text, h_token):
         m = self.prefix_regex.search(text)
         if m is None:
             return []
         if m.start() == 0 and m.end != len(text):
-            token = CustomToken(text[0: m.end()], None, True, True)
-            return [token] + list(self.__check_token__(text[m.end():]))
+            token = self.nlp(text[0: m.end()])[0]
+            return [self.__transform__(token)] + list(self.__check_token__(text[m.end():], h_token))
         return []
 
-    def suffix_re_check(self, text):
+    def suffix_re_check(self, text, h_token):
         m = self.suffix_regex.search(text)
         if m is None:
             return []
 
         if m.start() != 0 and m.end == len(text):
-            token = CustomToken(text[m.start():], None, True, True)
-            return list(self.__check_token__(text[0: m.start():])) + [[token]]
+            token = self.nlp(text[m.start():])[0]
+            return list(self.__check_token__(text[0: m.start():], h_token)) + [self.__transform__(token)]
         return []
 
-    def emoji_check(self, text):
+    def emoji_check(self, text, h_token):
         if text in EMOJI_DATA:
             return []
         result = []
@@ -189,10 +249,9 @@ class SpacyCustomTokenizer:
         for c in text:
             if c in EMOJI_DATA:
                 if previous_text != '':
-                    result += list(self.__check_token__(previous_text,
-                                   CustomToken(previous_text)))
+                    result += list(self.__check_token__(previous_text, h_token))
                     previous_text = ''
-                token = CustomToken(c)
+                token = self.__transform__(self.nlp(c)[0])
                 result.append(token)
             else:
                 previous_text += c
@@ -200,9 +259,9 @@ class SpacyCustomTokenizer:
             return []
         return result
 
-    def space_check(self, text):
+    def space_check(self, text, h_token):
         l = text.split(' ')
         if len(l) > 1:
-            return [self.__check_token__(t) for t in l]
+            return [self.__check_token__(t, h_token) for t in l]
 
         return []
