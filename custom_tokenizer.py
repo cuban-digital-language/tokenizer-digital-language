@@ -117,6 +117,7 @@ class SpacyCustomTokenizer:
 
     def __init__(self, special_cases={}) -> None:
         self.memory = {}
+        self.embedding = {}
         self.nlp = spacy.load("es_core_news_sm")
 
         emoji = [str(key) for key in EMOJI_DATA.keys()]
@@ -176,7 +177,8 @@ class SpacyCustomTokenizer:
     def __transform__(self, token):
         return CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct or token.is_left_punct,
                            lex=token.lemma_, is_title=token.is_title,
-                           pos=token.pos_, tag=token.tag_, vector=token.vector, dep=token.dep_, sent=token.sent.text)
+                           pos=token.pos_, tag=token.tag_, dep=token.dep_,
+                           vector=token.vector, sent=token.sent.text)
 
     def __call__(self, text):
         hsh = str(hash(text))
@@ -188,8 +190,8 @@ class SpacyCustomTokenizer:
                 t.is_symbol = obj["is_symbol"]
                 t.lemma = obj["lemma"]
                 t.syntax = obj["syntax"]
-                t.vector = obj["vector"]
-                t.sent = obj["sent"]
+                # t.vector = obj["vector"]
+                # t.sent = obj["sent"]
 
                 yield t
         else:
@@ -202,10 +204,11 @@ class SpacyCustomTokenizer:
                         "is_symbol": t.is_symbol,
                         "lemma": t.lemma,
                         "syntax": t.syntax,
-                        "vector": t.vector,
-                        "sent": t.sent
+                        # "vector": t.vector,
+                        # "sent": t.sent
                     })
 
+                    self.embedding[t.text] = t.vector
                     yield t
             self.memory[hsh] = tuple(self.memory[hsh])
 
