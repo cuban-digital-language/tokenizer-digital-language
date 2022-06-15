@@ -209,7 +209,7 @@ class SpacyCustomTokenizer:
                         "sent": t.sent
                     })
 
-                    self.embedding[t.text] = t.vector
+                    self.embedding[t.text] = tuple(t.vector)
                     yield t
             self.memory[hsh] = tuple(self.memory[hsh])
 
@@ -263,9 +263,9 @@ class SpacyCustomTokenizer:
             return []
         return result
 
-    def space_check(self, text, h_token):
-        l = text.split(' ')
-        if len(l) > 1:
-            return [self.__check_token__(t, h_token) for t in l]
+    # def space_check(self, text, h_token):
+    #     l = text.split(' ')
+    #     if len(l) > 1:
+    #         return [self.__check_token__(t, h_token) for t in l]
 
-        return []
+    #     return []
