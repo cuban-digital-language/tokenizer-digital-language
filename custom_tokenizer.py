@@ -19,14 +19,14 @@ def get_progressbar(N, name=""):
 
 class CustomToken:
     def __init__(self, text, lex=None, is_stop=False,
-                 is_sy=False, is_title=False,
+                 is_sy=False, is_title=False, is_end=False,
                  pos='', tag='', vector=None, dep='', sent='') -> None:
         self.text = text
         self.is_stop = is_stop
         # self.is_date = False
         self.is_symbol = is_sy
         self.lemma = lex
-        self.syntax = (is_title, pos, tag, dep)
+        self.syntax = (is_title, pos, tag, dep, is_end)
         self.vector = None if vector is None else tuple(vector)
         self.sent = sent
 
@@ -176,7 +176,7 @@ class SpacyCustomTokenizer:
 
     def __transform__(self, token):
         return CustomToken(token.text, is_stop=token.is_stop, is_sy=token.is_punct or token.is_left_punct,
-                           lex=token.lemma_, is_title=token.is_title,
+                           lex=token.lemma_, is_title=token.is_title or token.is_sent_start, is_end=token.is_sent_end,
                            pos=token.pos_, tag=token.tag_, dep=token.dep_,
                            vector=token.vector, sent=token.sent.text)
 
@@ -191,13 +191,14 @@ class SpacyCustomTokenizer:
                 t.lemma = obj["lemma"]
                 t.syntax = obj["syntax"]
                 # t.vector = obj["vector"]
-                # t.sent = obj["sent"]
+                t.sent = obj["sent"]
 
                 yield t
         else:
             self.memory[hsh] = []
             for token in self.nlp(text):
                 for t in self.__check_token__(token.text, self.__transform__(token)):
+                    t.sent = token.sent.text
                     self.memory[hsh].append({
                         "text": t.text,
                         "is_stop": t.is_stop,
@@ -205,7 +206,7 @@ class SpacyCustomTokenizer:
                         "lemma": t.lemma,
                         "syntax": t.syntax,
                         # "vector": t.vector,
-                        # "sent": t.sent
+                        "sent": t.sent
                     })
 
                     self.embedding[t.text] = t.vector
