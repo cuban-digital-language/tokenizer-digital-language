@@ -60,7 +60,7 @@ class CustomToken:
         return result
 
     def space(self):
-        return re.fullmatch(r'\s+', self.text) != None
+        return re.fullmatch(r'\s+', self.text) != None or not any(self.text)
 
     def is_emoji(self):
         return self.text in EMOJI_DATA
